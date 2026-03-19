@@ -1144,7 +1144,7 @@ nav.hidden { transform: translateY(-100%); }
     <div class="chatbot-header-avatar">P</div>
     <div class="chatbot-header-info">
       <h4>Asistente Psiconet</h4>
-      <span>En línea</span>
+      <span>Respuestas inmediatas</span>
     </div>
     <button class="chatbot-close" onclick="toggleChat()">✕</button>
   </div>
@@ -1153,7 +1153,9 @@ nav.hidden { transform: translateY(-100%); }
     <button class="chat-quick-btn" onclick="sendQuick('¿Qué servicios ofrecen?')">Servicios</button>
     <button class="chat-quick-btn" onclick="sendQuick('¿Cuáles son sus horarios?')">Horarios</button>
     <button class="chat-quick-btn" onclick="sendQuick('¿Cómo agendar una cita?')">Agendar cita</button>
+    <button class="chat-quick-btn" onclick="sendQuick('¿Dónde están ubicados?')">Ubicación</button>
     <button class="chat-quick-btn" onclick="sendQuick('¿Cuánto cuesta una sesión?')">Precios</button>
+    <button class="chat-quick-btn" onclick="sendQuick('¿Atienden online?')">Atención online</button>
   </div>
   <div class="chatbot-input">
     <input type="text" id="chatInput" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')sendMessage()">
@@ -1727,49 +1729,129 @@ function toggleMetrics() {
 loadMetrics();
 setTimeout(updateMetricsUI, 100);
 
-// ============ AI CHATBOT ============
-const PSICONET_CONTEXT = `Eres el asistente virtual de Psiconet, un centro de especialidades psicológicas en Lima, Perú. Fundado en 2013 por la Dra. Adela Roca (PUCP).
+// ============ FAQ CHATBOT (sin API, 100% local) ============
+const FAQ_DB = [
+  {
+    keywords: ['servicio', 'servicios', 'ofrecen', 'atienden', 'especialidad', 'especialidades', 'tratan', 'tratamiento'],
+    answer: 'Ofrecemos los siguientes servicios:<br><br>🧩 <strong>Ansiedad y estrés</strong><br>🌱 <strong>Nutrición emocional</strong><br>🧒 <strong>Terapia infantil y neuropsicología</strong><br>💊 <strong>Tratamiento de adicciones</strong><br>💑 <strong>Terapia de pareja</strong><br>🧠 <strong>Terapia individual</strong> (niños, adolescentes, adultos)<br>🏢 <strong>Consultoría empresarial</strong><br>🎓 <strong>Escuela de Formación en TCC</strong><br><br>¿Te interesa alguno en particular?'
+  },
+  {
+    keywords: ['horario', 'horarios', 'hora', 'atienden', 'abierto', 'abre', 'cierra', 'disponible', 'cuando'],
+    answer: 'Nuestro horario de atención es de <strong>lunes a sábado, de 8:00 AM a 8:00 PM</strong>. Ofrecemos atención tanto presencial como online para tu comodidad. 😊'
+  },
+  {
+    keywords: ['cita', 'agendar', 'reservar', 'turno', 'consulta', 'separar', 'programar', 'apartar'],
+    answer: 'Para agendar tu cita puedes:<br><br>📱 <strong>WhatsApp:</strong> <a href="https://wa.me/51940727363?text=Hola%2C%20quiero%20agendar%20una%20cita" target="_blank" style="color:var(--teal);font-weight:600">Click aquí para escribirnos</a><br>📞 <strong>Llamar:</strong> 940 727 363 / 947 708 734<br>📧 <strong>Email:</strong> info@psiconet.pe<br><br>Te orientamos sin compromiso sobre el servicio ideal para ti.'
+  },
+  {
+    keywords: ['precio', 'costo', 'cuanto', 'cuánto', 'cobran', 'tarifa', 'pago', 'pagar', 'económico', 'inversión'],
+    answer: 'El costo de las sesiones varía según el tipo de servicio y especialista. Para darte una cotización personalizada, te invito a contactarnos:<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20quisiera%20saber%20los%20precios%20de%20sus%20servicios" target="_blank" style="color:var(--teal);font-weight:600">Consultar precios por WhatsApp</a><br><br>Nuestro equipo te brindará toda la información. 💚'
+  },
+  {
+    keywords: ['dirección', 'direccion', 'donde', 'dónde', 'ubicación', 'ubicacion', 'sede', 'local', 'llegar', 'mapa'],
+    answer: 'Contamos con <strong>2 sedes en Lima Norte</strong>:<br><br>📍 <strong>Los Olivos:</strong> Calle Colcabamba 254, urb. Covida<br>📍 <strong>Comas:</strong> Consulta la dirección exacta al 940 727 363<br><br>También ofrecemos <strong>atención online</strong> desde cualquier lugar del Perú. 🇵🇪'
+  },
+  {
+    keywords: ['equipo', 'doctor', 'doctora', 'psicólogo', 'psicologo', 'terapeuta', 'profesional', 'quienes', 'especialista', 'adela', 'favio', 'marinés', 'marines'],
+    answer: 'Nuestro equipo de especialistas:<br><br>👩‍⚕️ <strong>Dra. Adela Roca</strong> — Fundadora. Nutrición emocional y ansiedad (adolescentes/adultos). PUCP.<br>👨‍⚕️ <strong>Dr. Favio Roca</strong> — Adicciones (adultos).<br>👩‍⚕️ <strong>Dra. Marinés Escobar</strong> — Neuropsicóloga (niños y adultos).<br><br>Todos trabajan bajo el enfoque <strong>Cognitivo Conductual</strong>. 🧠'
+  },
+  {
+    keywords: ['ansiedad', 'ansioso', 'ansiosa', 'pánico', 'panico', 'nervio', 'nervios', 'estrés', 'estres', 'angustia'],
+    answer: 'Entendemos lo difícil que puede ser. En Psiconet somos especialistas en ansiedad y estrés con el enfoque <strong>Cognitivo Conductual</strong>, respaldado por evidencia científica.<br><br>La <strong>Dra. Adela Roca</strong> es nuestra especialista principal en esta área. Te invitamos a dar el primer paso:<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20necesito%20ayuda%20con%20ansiedad" target="_blank" style="color:var(--teal);font-weight:600">Contactar por WhatsApp</a>'
+  },
+  {
+    keywords: ['niño', 'niños', 'hijo', 'hija', 'infantil', 'niñez', 'desarrollo', 'neuropsi', 'aprendizaje', 'conducta'],
+    answer: 'Contamos con la <strong>Dra. Marinés Escobar</strong>, neuropsicóloga especialista en evaluación y terapia para niños. Trabajamos:<br><br>• Evaluación neuropsicológica<br>• Dificultades de aprendizaje<br>• Problemas de conducta<br>• Desarrollo cognitivo y emocional<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20necesito%20una%20evaluación%20para%20mi%20hijo%2Fa" target="_blank" style="color:var(--teal);font-weight:600">Agendar evaluación</a>'
+  },
+  {
+    keywords: ['pareja', 'relación', 'relacion', 'esposo', 'esposa', 'matrimonio', 'conflicto', 'separación', 'comunicación'],
+    answer: 'La terapia de pareja les ayuda a fortalecer la comunicación, resolver conflictos y reconstruir el vínculo afectivo. Trabajamos con el enfoque <strong>Cognitivo Conductual</strong> adaptado a la dinámica de pareja.<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20nos%20interesa%20terapia%20de%20pareja" target="_blank" style="color:var(--teal);font-weight:600">Consultar por terapia de pareja</a>'
+  },
+  {
+    keywords: ['adicción', 'adiccion', 'adicciones', 'droga', 'alcohol', 'dependencia', 'sustancia', 'vicio'],
+    answer: 'El <strong>Dr. Favio Roca</strong> es nuestro especialista en tratamiento de adicciones para adultos. Ofrecemos un programa integral con acompañamiento terapéutico profesional y enfoque Cognitivo Conductual.<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20necesito%20información%20sobre%20tratamiento%20de%20adicciones" target="_blank" style="color:var(--teal);font-weight:600">Contactar especialista</a>'
+  },
+  {
+    keywords: ['escuela', 'formación', 'formacion', 'curso', 'estudiar', 'capacitación', 'diplomado', 'certificación', 'aprender', 'profesional'],
+    answer: 'Nuestra <strong>Escuela de Formación en Terapia Cognitivo Conductual</strong> ha formado +XV promociones de psicoterapeutas. Ofrecemos:<br><br>🎓 Programas de especialización clínica<br>📚 Cursos de formación en TCC<br>🏅 Certificación profesional<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20me%20interesa%20la%20Escuela%20de%20Formación" target="_blank" style="color:var(--teal);font-weight:600">Más información</a>'
+  },
+  {
+    keywords: ['online', 'virtual', 'distancia', 'remoto', 'zoom', 'videollamada', 'casa'],
+    answer: 'Sí, ofrecemos <strong>atención online</strong> para tu comodidad. Las sesiones virtuales tienen la misma calidad y efectividad que las presenciales. Puedes conectarte desde cualquier lugar del Perú.<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20me%20interesa%20terapia%20online" target="_blank" style="color:var(--teal);font-weight:600">Agendar sesión online</a>'
+  },
+  {
+    keywords: ['cognitivo', 'conductual', 'tcc', 'enfoque', 'método', 'metodo', 'técnica', 'como trabajan'],
+    answer: 'Trabajamos con el enfoque <strong>Cognitivo Conductual (TCC)</strong>, uno de los más efectivos y respaldados por la ciencia. Este enfoque se centra en identificar y modificar patrones de pensamiento y conducta que generan malestar emocional.<br><br>Es un tratamiento <strong>práctico, con objetivos claros</strong> y herramientas que aplicas en tu día a día. 🧠'
+  },
+  {
+    keywords: ['depresión', 'depresion', 'triste', 'tristeza', 'soledad', 'vacío', 'desmotivado', 'sin ganas', 'llorar'],
+    answer: 'Lamento que estés pasando por un momento difícil. La tristeza prolongada merece atención profesional, y dar el primer paso es muy valiente. 💚<br><br>Nuestro equipo puede ayudarte con terapia especializada. Te invitamos a contactarnos:<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20necesito%20ayuda%20profesional" target="_blank" style="color:var(--teal);font-weight:600">Hablar con un especialista</a><br><br>No tienes que hacerlo solo/a.'
+  },
+  {
+    keywords: ['hola', 'buenas', 'buenos días', 'buenas tardes', 'hey', 'hello', 'saludos', 'que tal'],
+    answer: '¡Hola! 👋 Bienvenido/a a Psiconet. Estoy aquí para ayudarte con información sobre nuestros servicios. ¿Qué te gustaría saber?'
+  },
+  {
+    keywords: ['gracias', 'thanks', 'genial', 'perfecto', 'excelente', 'ok', 'vale', 'entendido'],
+    answer: '¡Con mucho gusto! 😊 Si tienes alguna otra pregunta no dudes en escribirme. Recuerda que también puedes contactarnos directamente al <strong>940 727 363</strong>. ¡Te deseamos un excelente día! 💚'
+  },
+  {
+    keywords: ['seguro', 'aseguradora', 'eps', 'cobertura', 'essalud'],
+    answer: 'Para consultas sobre cobertura de seguros o EPS, te recomendamos contactar directamente a nuestro equipo administrativo, quienes podrán orientarte según tu caso:<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20consulta%20sobre%20cobertura%20de%20seguro" target="_blank" style="color:var(--teal);font-weight:600">Consultar por WhatsApp</a>'
+  }
+];
 
-DATOS CLAVE:
-- Enfoque: Terapia Cognitivo Conductual
-- Sedes: Los Olivos (Calle Colcabamba 254, urb. Covida) y Comas
-- Teléfonos: 940 727 363 / 947 708 734
-- Email: info@psiconet.pe
-- Instagram: @psiconet_
-- Horarios: Lunes a Sábado, 8am a 8pm
-- Atención presencial y online
+// Normalize text: remove accents, lowercase
+function normalize(text) {
+  return text.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
 
-EQUIPO:
-- Dra. Adela Roca: Fundadora, psicoterapeuta especialista en nutrición emocional y ansiedad (adolescentes/adultos)
-- Dr. Favio Roca: Psicoterapeuta especialista en adicciones (adultos)
-- Dra. Marinés Escobar: Neuropsicóloga (niños y adultos)
+// Find best FAQ match
+function findAnswer(input) {
+  const norm = normalize(input);
+  const words = norm.split(' ');
+  let bestMatch = null;
+  let bestScore = 0;
 
-SERVICIOS:
-- Terapia individual (niños, adolescentes, adultos)
-- Terapia de pareja
-- Ansiedad y estrés
-- Nutrición emocional
-- Terapia infantil y neuropsicología
-- Tratamiento de adicciones
-- Consultoría empresarial
-- Escuela de Formación en Terapia Cognitivo Conductual (+XV promociones)
+  for (const faq of FAQ_DB) {
+    let score = 0;
+    for (const kw of faq.keywords) {
+      const kwNorm = normalize(kw);
+      // Exact word match
+      if (words.includes(kwNorm)) { score += 3; continue; }
+      // Partial match (word contains keyword or vice versa)
+      for (const w of words) {
+        if (w.length > 2 && kwNorm.includes(w)) { score += 2; break; }
+        if (kwNorm.length > 2 && w.includes(kwNorm)) { score += 2; break; }
+      }
+      // Phrase match
+      if (norm.includes(kwNorm)) { score += 2.5; }
+    }
+    if (score > bestScore) { bestScore = score; bestMatch = faq; }
+  }
 
-LOGROS: +3000 pacientes atendidos, +10 años de experiencia.
+  return bestScore >= 2 ? bestMatch.answer : null;
+}
 
-Responde siempre en español, de forma cálida, empática y profesional. Sé conciso (máximo 3 oraciones). Si preguntan por precios, indica que contacten por WhatsApp para una cotización personalizada. Si detectas una situación de crisis, sugiere contactar directamente al 940 727 363.`;
+// Fallback message → WhatsApp
+const FALLBACK_MSG = `No tengo una respuesta exacta para eso, pero nuestro equipo sí puede ayudarte. 😊<br><br>Te conecto con un especialista directamente:<br><br>📱 <a href="https://wa.me/51940727363?text=Hola%2C%20tengo%20una%20consulta%20sobre%20sus%20servicios" target="_blank" style="color:var(--teal);font-weight:600;text-decoration:underline">Hablar con un especialista por WhatsApp</a><br>📞 Llamar al <strong>940 727 363</strong><br><br>¡Estarán encantados de atenderte!`;
 
-let chatHistory = [];
 let chatOpen = false;
+let firstOpen = true;
 
 function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chatWindow').classList.toggle('open', chatOpen);
   document.getElementById('chatToggle').classList.toggle('active', chatOpen);
   document.getElementById('chatBadge').style.display = chatOpen ? 'none' : 'block';
-  if (chatOpen && chatHistory.length === 0) {
-    addBotMessage('¡Hola! 👋 Soy el asistente de Psiconet. ¿En qué puedo ayudarte hoy?');
+  if (chatOpen && firstOpen) {
+    firstOpen = false;
+    setTimeout(() => addBotMessage('¡Hola! 👋 Soy el asistente virtual de <strong>Psiconet</strong>. Puedo ayudarte con información sobre nuestros servicios, horarios, sedes y más.<br><br>¿En qué puedo ayudarte?'), 300);
   }
-  trackClick('Chatbot abierto');
+  trackClick('Chatbot');
 }
 
 function addBotMessage(text) {
@@ -1779,7 +1861,6 @@ function addBotMessage(text) {
   msg.innerHTML = `<div class="chat-msg-avatar">P</div><div class="chat-msg-bubble">${text}</div>`;
   msgs.appendChild(msg);
   msgs.scrollTop = msgs.scrollHeight;
-  chatHistory.push({ role: 'assistant', content: text });
 }
 
 function addUserMessage(text) {
@@ -1789,7 +1870,6 @@ function addUserMessage(text) {
   msg.innerHTML = `<div class="chat-msg-avatar">Tú</div><div class="chat-msg-bubble">${text}</div>`;
   msgs.appendChild(msg);
   msgs.scrollTop = msgs.scrollHeight;
-  chatHistory.push({ role: 'user', content: text });
 }
 
 function showTyping() {
@@ -1808,7 +1888,7 @@ function removeTyping() {
 
 function sendQuick(text) {
   document.getElementById('quickActions').style.display = 'none';
-  sendMessageText(text);
+  processMessage(text);
 }
 
 function sendMessage() {
@@ -1816,49 +1896,33 @@ function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  sendMessageText(text);
+  processMessage(text);
 }
 
-async function sendMessageText(text) {
+function processMessage(text) {
   addUserMessage(text);
   metrics.chatMessages++;
-  logActivity('chat', `Usuario: ${text.slice(0, 40)}...`);
+  logActivity('chat', `Pregunta: ${text.slice(0, 40)}`);
   saveMetrics();
   updateMetricsUI();
 
-  const sendBtn = document.getElementById('chatSend');
-  sendBtn.disabled = true;
   showTyping();
 
-  try {
-    const apiMessages = [
-      { role: 'user', content: PSICONET_CONTEXT + '\n\nResponde a esta consulta del paciente potencial:' },
-      { role: 'assistant', content: '¡Entendido! Estoy listo para ayudar como asistente de Psiconet.' }
-    ];
-    chatHistory.filter(m => m.role).forEach(m => apiMessages.push(m));
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: apiMessages
-      })
-    });
-
-    const data = await response.json();
+  // Simulate natural response delay (400-900ms)
+  const delay = 400 + Math.random() * 500;
+  setTimeout(() => {
     removeTyping();
-
-    const reply = data.content?.map(c => c.type === 'text' ? c.text : '').join('') || 'Lo siento, hubo un error. Por favor contacta directamente al 940 727 363.';
-    addBotMessage(reply);
-  } catch (err) {
-    removeTyping();
-    addBotMessage('Disculpa, tuve un problema técnico. Puedes contactarnos al <strong>940 727 363</strong> o por <a href="https://wa.me/51940727363" target="_blank" style="color:var(--teal)">WhatsApp</a>.');
-  }
-
-  sendBtn.disabled = false;
-  document.getElementById('chatInput').focus();
+    const answer = findAnswer(text);
+    if (answer) {
+      addBotMessage(answer);
+      logActivity('chat', 'Respuesta FAQ encontrada');
+    } else {
+      addBotMessage(FALLBACK_MSG);
+      logActivity('chat', 'Sin match → WhatsApp');
+    }
+    saveMetrics();
+    updateMetricsUI();
+  }, delay);
 }
 </script>
 </body>
